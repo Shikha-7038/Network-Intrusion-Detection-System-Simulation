@@ -1,0 +1,66 @@
+{
+  "rows": 6000,
+  "test_rows": 1500,
+  "features": [
+    "packet_count",
+    "byte_count",
+    "duration",
+    "bytes_per_second",
+    "packets_per_second",
+    "connection_count",
+    "failed_connection_count",
+    "syn_count",
+    "rst_count",
+    "average_packet_size"
+  ],
+  "models": {
+    "logistic_regression": {
+      "accuracy": 0.9367,
+      "precision": 0.8527,
+      "recall": 0.8272,
+      "f1": 0.8398,
+      "confusion": [
+        [
+          1156,
+          43
+        ],
+        [
+          52,
+          249
+        ]
+      ]
+    },
+    "random_forest": {
+      "accuracy": 0.9967,
+      "precision": 0.9966,
+      "recall": 0.9867,
+      "f1": 0.9917,
+      "confusion": [
+        [
+          1198,
+          1
+        ],
+        [
+          4,
+          297
+        ]
+      ]
+    },
+    "isolation_forest": {
+      "accuracy": 0.844,
+      "precision": 0.5631,
+      "recall": 0.9934,
+      "f1": 0.7188,
+      "confusion": [
+        [
+          967,
+          232
+        ],
+        [
+          2,
+          299
+        ]
+      ]
+    }
+  }
+}

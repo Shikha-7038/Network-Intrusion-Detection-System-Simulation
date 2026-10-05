@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Network IDS - SOC Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#0a101d;--p:#101a2e;--l:#1d2a45;--t:#dbe5f7;--m:#8aa0c4;--a:#38bdf8}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(1200px 500px at 20% -10%,#12254a 0,var(--bg) 60%);color:var(--t);font:13px/1.4 system-ui,Segoe UI,sans-serif}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:8px 14px;border-bottom:1px solid var(--l);position:sticky;top:0;background:#0a101dee;backdrop-filter:blur(6px);z-index:5}
+h1{font-size:16px;margin:0}h1 small{color:var(--m);font-weight:400}
+nav{display:flex;gap:4px;flex-wrap:wrap}nav button{border:0;border-radius:8px;padding:7px 14px;background:transparent;color:var(--m);font-weight:600}nav button.on{background:#17274a;color:#fff;box-shadow:inset 0 -2px 0 var(--a)}
+.live{color:#22c55e;font-size:12px}.live:before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:#22c55e;margin-right:6px;animation:b 1.2s infinite}@keyframes b{50%{opacity:.25}}
+.bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+select,button,textarea,input{background:#0d1628;color:var(--t);border:1px solid var(--l);border-radius:6px;padding:5px 8px;font:inherit}button{cursor:pointer}button:hover{border-color:var(--a)}
+.tab{display:none;grid-template-columns:repeat(12,1fr);gap:10px;padding:10px 14px;height:calc(100vh - 58px);min-height:560px}.tab.on{display:grid}#t-overview{grid-template-rows:88px repeat(3,1fr);min-height:820px}
+.p{background:linear-gradient(180deg,#121e36,var(--p));border:1px solid var(--l);border-radius:10px;padding:10px;min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.p h3{margin:0 0 6px;font-size:11px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;display:flex;justify-content:space-between;gap:8px}
+.cv{position:relative;flex:1;min-height:0}.sc{flex:1;overflow:auto;min-height:0}
+.k{justify-content:center}.k b{font-size:26px;line-height:1.1}.k span{color:var(--m);font-size:11px;text-transform:uppercase;letter-spacing:.05em}.k i{font-style:normal;font-size:11px;color:var(--m)}
+table{width:100%;border-collapse:collapse;font-size:12px}th{position:sticky;top:0;background:#101a2e;color:var(--m);text-align:left;font-weight:600;padding:5px 6px;z-index:1}
+td{padding:5px 6px;border-top:1px solid var(--l);white-space:nowrap}tr.r{cursor:pointer}tr.r:hover{background:#17274a}
+.bd{padding:1px 7px;border-radius:99px;font-size:11px;font-weight:600;color:#06101f;white-space:nowrap}.rk{display:inline-block;height:6px;border-radius:3px;vertical-align:middle;margin-right:5px}
+.col{display:grid;grid-template-rows:1fr 1fr;gap:10px;grid-column:span 4;min-height:0}
+.feed div{display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-top:1px solid var(--l);font-size:12px}.mut{color:var(--m)}
+.inc{padding:5px 0;border-top:1px solid var(--l);font-size:12px;display:flex;justify-content:space-between;gap:6px}
+#dr{position:fixed;top:0;right:0;width:480px;max-width:100%;height:100%;background:#0c1426;border-left:1px solid var(--l);transform:translateX(105%);transition:.25s;z-index:10;overflow:auto;padding:14px}#dr.o{transform:none}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;margin:8px 0}.g2 div{background:#0f1a30;border:1px solid var(--l);border-radius:6px;padding:5px 8px}.g2 small{display:block;color:var(--m);font-size:10px;text-transform:uppercase}
+.sb{height:8px;background:#16223d;border-radius:4px;margin:3px 0 8px}.sb i{display:block;height:100%;border-radius:4px}
+.chip{display:inline-block;background:#0f1a30;border:1px solid var(--l);border-radius:99px;padding:2px 9px;margin:2px;font-size:11px}
+pre{margin:0;white-space:pre-wrap;font-size:12px;color:#c7d6f0}td input[type=number]{width:70px;padding:2px 4px}
+@media(max-width:1100px){.tab{grid-template-columns:repeat(6,1fr);grid-template-rows:none!important;height:auto;grid-auto-rows:minmax(300px,auto)}.tab>*{grid-column:span 6!important}.k{min-height:90px}}
+</style></head><body>
+<header><h1>🛡️ Network IDS <small>SOC Dashboard · synthetic data</small></h1>
+<nav id="nav"><button data-t="overview">Overview</button><button data-t="alerts">Alerts</button><button data-t="incidents">Incidents</button><button data-t="flows">Flows</button><button data-t="rules">Rules</button><button data-t="model">Model &amp; Reports</button></nav>
+<div class="bar"><select id="fRange"><option value="15">Last 15 min</option><option value="60">Last 1 hour</option><option value="180" selected>Last 3 hours</option><option value="1440">Last 24 hours</option></select><button id="pause">⏸ Pause</button><span class="live" id="lv">LIVE</span></div></header>
+
+<section class="tab" id="t-overview">
+<div class="p k" style="grid-column:span 2"><span>Total flows</span><b id="k1">-</b><i id="k1s"></i></div>
+<div class="p k" style="grid-column:span 2"><span>Normal traffic</span><b id="k2" style="color:#22c55e">-</b><i id="k2s"></i></div>
+<div class="p k" style="grid-column:span 2"><span>Suspicious traffic</span><b id="k3" style="color:#f97316">-</b><i id="k3s"></i></div>
+<div class="p k" style="grid-column:span 2"><span>Open alerts</span><b id="k4" style="color:#eab308">-</b><i id="k4s"></i></div>
+<div class="p k" style="grid-column:span 2"><span>Critical alerts</span><b id="k5" style="color:#ef4444">-</b><i id="k5s"></i></div>
+<div class="p k" style="grid-column:span 2"><span>Average risk score</span><b id="k6">-</b><i id="k6s"></i></div>
+<div class="p" style="grid-column:span 4"><h3>Traffic over time <span>packets/s · bytes/s</span></h3><div class="cv"><canvas id="c1"></canvas></div></div>
+<div class="p" style="grid-column:span 3"><h3>Connections &amp; failures</h3><div class="cv"><canvas id="c2"></canvas></div></div>
+<div class="p" style="grid-column:span 3"><h3>Alert &amp; risk timeline</h3><div class="cv"><canvas id="c3"></canvas></div></div>
+<div class="p" style="grid-column:span 2"><h3>Normal vs suspicious</h3><div class="cv"><canvas id="c4"></canvas></div></div>
+<div class="p" style="grid-column:span 2"><h3>Alerts by severity</h3><div class="cv"><canvas id="c5"></canvas></div></div>
+<div class="p" style="grid-column:span 3"><h3>Top alert types</h3><div class="cv"><canvas id="c6"></canvas></div></div>
+<div class="p" style="grid-column:span 2"><h3>Protocols</h3><div class="cv"><canvas id="c7"></canvas></div></div>
+<div class="p" style="grid-column:span 3"><h3>Destination ports</h3><div class="cv"><canvas id="c8"></canvas></div></div>
+<div class="p" style="grid-column:span 2"><h3>Risk distribution</h3><div class="cv"><canvas id="c9"></canvas></div></div>
+<div class="p" style="grid-column:span 4"><h3>Top source IPs by alerts</h3><div class="cv"><canvas id="c10"></canvas></div></div>
+<div class="p" style="grid-column:span 4"><h3>Live flow feed</h3><div class="sc feed" id="feed"></div></div>
+<div class="p" style="grid-column:span 4"><h3>Latest incidents <span>60s window</span></h3><div class="sc" id="inc"></div></div>
+</section>
+
+<section class="tab" id="t-alerts">
+<div class="p" style="grid-column:span 8"><h3>All alerts <span id="tc"></span></h3>
+<div class="bar" style="margin-bottom:8px"><select id="fSev"><option value="">Severity: all</option><option>CRITICAL</option><option>HIGH</option><option>MEDIUM</option><option>LOW</option><option>INFO</option></select>
+<select id="fProto"><option value="">Protocol: all</option><option>TCP</option><option>UDP</option><option>ICMP</option></select><select id="fType"><option value="">Alert type: all</option></select>
+<select id="fStat"><option value="">Status: all</option><option>NEW</option><option>INVESTIGATING</option><option>RESOLVED</option><option>FALSE_POSITIVE</option></select></div>
+<div class="sc"><table><thead><tr><th>Time</th><th>Alert ID</th><th>Source IP</th><th>Destination</th><th>Proto</th><th>Alert type</th><th>Severity</th><th>Risk</th><th>Status</th></tr></thead><tbody id="tb"></tbody></table></div></div>
+<div class="col"><div class="p"><h3>Alerts by status</h3><div class="cv"><canvas id="c13"></canvas></div></div><div class="p"><h3>Alerts by rule</h3><div class="cv"><canvas id="c14"></canvas></div></div></div>
+</section>
+
+<section class="tab" id="t-incidents">
+<div class="p" style="grid-column:span 8"><h3>Correlated incidents <span id="ic"></span></h3><div class="sc"><table><thead><tr><th>Incident</th><th>Source IP</th><th>Type</th><th>Alerts</th><th>First seen</th><th>Last seen</th><th>Max risk</th><th>Severity</th></tr></thead><tbody id="itb"></tbody></table></div></div>
+<div class="col"><div class="p"><h3>Incidents by severity</h3><div class="cv"><canvas id="c11"></canvas></div></div><div class="p"><h3>Alerts per incident type</h3><div class="cv"><canvas id="c12"></canvas></div></div></div>
+</section>
+
+<section class="tab" id="t-flows">
+<div class="p" style="grid-column:span 8"><h3>Network flows <span id="fc"></span></h3>
+<div class="bar" style="margin-bottom:8px"><input id="fq" placeholder="Search IP or port..." style="min-width:200px"><select id="fCls"><option value="">Class: all</option><option>NORMAL</option><option>SUSPICIOUS</option><option>POTENTIAL INTRUSION</option></select></div>
+<div class="sc"><table><thead><tr><th>Time</th><th>Source</th><th>Destination</th><th>Proto</th><th>Pkts</th><th>Bytes</th><th>Conn/Fail</th><th>Sig</th><th>Anom</th><th>ML</th><th>Risk</th><th>Class</th></tr></thead><tbody id="ftb"></tbody></table></div></div>
+<div class="col"><div class="p"><h3>Flows by classification</h3><div class="cv"><canvas id="c15"></canvas></div></div><div class="p"><h3>Average score components by class</h3><div class="cv"><canvas id="c16"></canvas></div></div></div>
+</section>
+
+<section class="tab" id="t-rules">
+<div class="p" style="grid-column:span 8"><h3>Detection rules <span>edit thresholds · changes apply to new flows</span></h3><div class="sc" id="rt"></div></div>
+<div class="col"><div class="p"><h3>Rule hits in window</h3><div class="cv"><canvas id="c17"></canvas></div></div>
+<div class="p"><h3>How scoring works</h3><div class="sc mut" style="font-size:12px;line-height:1.6"><b style="color:#dbe5f7">Risk = 40% rule + 30% anomaly + 30% ML</b> (60/40 if no ML model).<br>A rule match means <i>investigate</i>, not "confirmed attack".<br><br><span class="chip" style="color:#22c55e">0-20 NORMAL</span><span class="chip" style="color:#84cc16">21-40 LOW</span><span class="chip" style="color:#eab308">41-60 SUSPICIOUS</span><span class="chip" style="color:#f97316">61-80 HIGH</span><span class="chip" style="color:#ef4444">81-100 CRITICAL</span><br><br>Lower thresholds catch more but raise false positives (alert fatigue); higher thresholds risk missed detections.</div></div></div>
+</section>
+
+<section class="tab" id="t-model" style="grid-template-rows:1fr 1fr">
+<div class="p" style="grid-column:span 5"><h3>Model comparison <span id="mi"></span></h3><div class="sc" id="mt"></div></div>
+<div class="p" style="grid-column:span 7"><h3>Accuracy · precision · recall · F1</h3><div class="cv"><canvas id="c18"></canvas></div></div>
+<div class="p" style="grid-column:span 7"><h3>Confusion matrices <span>rows = actual, cols = predicted</span></h3><div class="sc" id="cm"></div></div>
+<div class="p" style="grid-column:span 5"><h3>Incident report <span><button onclick="dl()">⬇ Download .md</button></span></h3><div class="sc"><pre id="rep"></pre></div></div>
+</section>
+<aside id="dr"></aside>
+<script>
+const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const SEV=['CRITICAL','HIGH','MEDIUM','LOW','INFO'],COL={CRITICAL:'#ef4444',HIGH:'#f97316',MEDIUM:'#eab308',LOW:'#22c55e',INFO:'#64748b'},PAL=['#38bdf8','#a78bfa','#f472b6','#34d399','#fbbf24','#fb7185','#60a5fa','#f97316'];
+const ST={NEW:'#38bdf8',INVESTIGATING:'#eab308',RESOLVED:'#22c55e',FALSE_POSITIVE:'#94a3b8'},CC={NORMAL:'#22c55e',SUSPICIOUS:'#eab308','POTENTIAL INTRUSION':'#ef4444'};
+const api=(p,o)=>fetch('/api'+p,o).then(r=>r.json()),M=()=>'minutes='+$('#fRange').value,fmt=n=>n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(1)+'k':Math.round(n),lt=s=>new Date(s+'Z').toLocaleTimeString([], {hour12:false});
+const put=(p,b)=>api(p,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});
+const cnt=(arr,f)=>{const o={};arr.forEach(x=>{const k=f(x);o[k]=(o[k]||0)+1});return o};
+Chart.defaults.color='#8aa0c4';Chart.defaults.borderColor='#1d2a45';Chart.defaults.animation=false;Chart.defaults.font.size=10;
+const C={};
+function ch(id,type,labels,sets,opt={}){const data={labels,datasets:sets};if(C[id]){C[id].data=data;C[id].update('none');return}
+ const pie=type==='doughnut';C[id]=new Chart($('#'+id),{type,data,options:{responsive:true,maintainAspectRatio:false,indexAxis:opt.h?'y':'x',plugins:{legend:{display:pie||sets.length>1,position:pie?'right':'top',labels:{boxWidth:8}}},
+ scales:pie?{}:Object.assign({x:{grid:{display:false},ticks:{maxTicksLimit:7}},y:{beginAtZero:true,grid:{color:'#16223d'}}},opt.scales||{}),cutout:'62%'}})}
+const ds=(label,data,color,extra={})=>Object.assign({label,data,backgroundColor:color,borderColor:color,borderWidth:1.5,pointRadius:0,tension:.3},extra);
+const sevB=s=>`<span class="bd" style="background:${COL[s]}">${s}</span>`,stB=s=>`<span class="bd" style="background:${ST[s]}">${s}</span>`,clsB=c=>`<span class="bd" style="background:${CC[c]}">${c}</span>`;
+const riskC=(r,s)=>`<i class="rk" style="width:${r*.5}px;background:${COL[s]||'#38bdf8'}"></i>${r}`;
+
+/* ---------- OVERVIEW ---------- */
+async function overview(){
+ const [s,t,a]=await Promise.all([api('/dashboard/stats?'+M()),api('/dashboard/traffic?'+M()),api('/dashboard/alerts?'+M())]);
+ const pct=(x,y)=>y?(100*x/y).toFixed(1)+'%':'0%';
+ $('#k1').textContent=s.total_flows.toLocaleString();$('#k1s').textContent=s.ml_enabled?'hybrid: rules + anomaly + ML':'rules + anomaly';
+ $('#k2').textContent=s.normal.toLocaleString();$('#k2s').textContent=pct(s.normal,s.total_flows)+' of flows';
+ $('#k3').textContent=s.suspicious.toLocaleString();$('#k3s').textContent=pct(s.suspicious,s.total_flows)+' of flows';
+ $('#k4').textContent=s.open_alerts;$('#k4s').textContent=s.total_alerts+' alerts in window';
+ $('#k5').textContent=s.critical_alerts;$('#k5s').textContent='needs immediate triage';
+ $('#k6').textContent=s.avg_risk;$('#k6').style.color=s.avg_risk>40?COL.HIGH:'#22c55e';$('#k6s').textContent='0-100 hybrid score';
+ const L=t.map(x=>x.time.slice(11,16));
+ ch('c1','line',L,[ds('packets/s',t.map(x=>x.pps),'#38bdf8',{fill:true,backgroundColor:'#38bdf822'}),ds('bytes/s',t.map(x=>x.bps),'#a78bfa',{yAxisID:'y1'})],{scales:{y1:{position:'right',beginAtZero:true,grid:{display:false},ticks:{callback:fmt}}}});
+ ch('c2','bar',L,[ds('connections',t.map(x=>x.conns),'#38bdf8bb'),ds('failed',t.map(x=>x.failed),'#ef4444')]);
+ ch('c3','bar',L,[ds('alerts',t.map(x=>x.alerts),'#f97316bb'),ds('avg risk',t.map(x=>x.risk),'#eab308',{type:'line',yAxisID:'y1'})],{scales:{y1:{position:'right',min:0,max:100,grid:{display:false}}}});
+ ch('c4','doughnut',['Normal','Suspicious'],[{data:[s.normal,s.suspicious],backgroundColor:['#22c55e','#f97316'],borderWidth:0}]);
+ const bs=Object.fromEntries(a.by_severity.map(x=>[x.k,x.c]));ch('c5','bar',SEV,[{data:SEV.map(k=>bs[k]||0),backgroundColor:SEV.map(k=>COL[k]),label:'alerts'}]);
+ ch('c6','bar',a.top_types.map(x=>x.k),[{data:a.top_types.map(x=>x.c),backgroundColor:PAL,label:'alerts'}],{h:1});
+ ch('c7','doughnut',a.protocols.map(x=>x.k),[{data:a.protocols.map(x=>x.c),backgroundColor:PAL,borderWidth:0}]);
+ ch('c8','bar',a.ports.map(x=>x.k),[{data:a.ports.map(x=>x.c),backgroundColor:'#34d399',label:'flows'}]);
+ const rh=Array(10).fill(0);a.risk_hist.forEach(x=>rh[x.k]=x.c);ch('c9','bar',rh.map((_,i)=>i*10+'-'+(i*10+10)),[{data:rh,backgroundColor:rh.map((_,i)=>i<2?'#22c55e':i<4?'#eab308':i<6?'#f97316':'#ef4444'),label:'flows'}],{scales:{y:{type:'logarithmic',min:.8}}});
+ ch('c10','bar',a.top_sources.map(x=>x.k),[{data:a.top_sources.map(x=>x.c),backgroundColor:'#f472b6',label:'alerts'}],{h:1});
+ $('#inc').innerHTML=a.incidents.map(i=>`<div class="inc"><span><b>${esc(i.incident_id)}</b> ${esc(i.source_ip)}<br><span class="mut">${esc(i.alert_type)} · ${i.alert_count} alerts</span></span><span>${sevB(i.severity)}<br><span class="mut">risk ${i.max_risk}</span></span></div>`).join('')||'<span class="mut">No incidents</span>';
+ $('#feed').innerHTML=a.feed.map(f=>`<div><span class="mut">${lt(f.timestamp)}</span><span>${esc(f.source_ip)} → ${esc(f.destination_ip)}:${f.destination_port}</span><span style="color:${CC[f.classification]}">${f.classification} ${f.risk_score}</span></div>`).join('');
+}
+/* ---------- ALERTS ---------- */
+const types=new Set();
+async function alertsTab(){const p=new URLSearchParams({limit:500,minutes:$('#fRange').value});[['severity','#fSev'],['protocol','#fProto'],['alert_type','#fType'],['status','#fStat']].forEach(([k,s])=>$(s).value&&p.set(k,$(s).value));
+ const r=await api('/alerts?'+p);r.forEach(x=>{if(!types.has(x.alert_type)){types.add(x.alert_type);$('#fType').insertAdjacentHTML('beforeend',`<option>${esc(x.alert_type)}</option>`)}});
+ $('#tc').textContent=`${Math.min(r.length,200)} of ${r.length}`;
+ $('#tb').innerHTML=r.slice(0,200).map(a=>`<tr class="r" onclick="openA('${a.alert_id}')"><td>${lt(a.timestamp)}</td><td>${a.alert_id}</td><td>${esc(a.source_ip)}</td><td>${esc(a.destination_ip)}:${a.destination_port}</td><td>${a.protocol}</td><td>${esc(a.alert_type)}</td><td>${sevB(a.severity)}</td><td>${riskC(a.risk_score,a.severity)}</td><td>${stB(a.status)}</td></tr>`).join('');
+ const s=cnt(r,x=>x.status),k=Object.keys(ST);ch('c13','doughnut',k,[{data:k.map(x=>s[x]||0),backgroundColor:k.map(x=>ST[x]),borderWidth:0}]);
+ const u=cnt(r,x=>x.rule_id+' '+x.alert_type),e=Object.entries(u).sort((a,b)=>b[1]-a[1]);ch('c14','bar',e.map(x=>x[0]),[{data:e.map(x=>x[1]),backgroundColor:PAL,label:'alerts'}],{h:1})}
+/* ---------- INCIDENTS ---------- */
+async function incTab(){const r=await api('/incidents?'+M());$('#ic').textContent=r.length+' incidents';
+ $('#itb').innerHTML=r.slice(0,200).map(i=>`<tr class="r" onclick="openA('${i.alert_ids[0]}')"><td>${i.incident_id}</td><td>${esc(i.source_ip)}</td><td>${esc(i.alert_type)}</td><td>${i.alert_count}</td><td>${lt(i.first_seen)}</td><td>${lt(i.last_seen)}</td><td>${riskC(i.max_risk,i.severity)}</td><td>${sevB(i.severity)}</td></tr>`).join('');
+ const s=cnt(r,x=>x.severity);ch('c11','doughnut',SEV,[{data:SEV.map(x=>s[x]||0),backgroundColor:SEV.map(x=>COL[x]),borderWidth:0}]);
+ const t={};r.forEach(x=>t[x.alert_type]=(t[x.alert_type]||0)+x.alert_count);const e=Object.entries(t).sort((a,b)=>b[1]-a[1]);ch('c12','bar',e.map(x=>x[0]),[{data:e.map(x=>x[1]),backgroundColor:PAL,label:'alerts'}],{h:1})}
+/* ---------- FLOWS ---------- */
+let FL=[];async function flowsTab(){FL=await api('/flows?limit=500&minutes='+$('#fRange').value);drawFlows()}
+function drawFlows(){const q=$('#fq').value.trim().toLowerCase(),c=$('#fCls').value;
+ const r=FL.filter(f=>(!c||f.classification===c)&&(!q||[f.source_ip,f.destination_ip,f.destination_port,f.flow_id].join(' ').toLowerCase().includes(q)));
+ $('#fc').textContent=`${Math.min(r.length,200)} of ${r.length}`;
+ $('#ftb').innerHTML=r.slice(0,200).map(f=>`<tr><td>${lt(f.timestamp)}</td><td>${esc(f.source_ip)}</td><td>${esc(f.destination_ip)}:${f.destination_port}</td><td>${f.protocol}</td><td>${fmt(f.packet_count)}</td><td>${fmt(f.byte_count)}</td><td>${f.connection_count}/${f.failed_connection_count}</td><td>${Math.round(f.signature_score)}</td><td>${Math.round(f.anomaly_score)}</td><td>${f.ml_score==null?'-':Math.round(f.ml_score)}</td><td>${riskC(f.risk_score)}</td><td>${clsB(f.classification)}</td></tr>`).join('');
+ const k=Object.keys(CC),n=cnt(FL,x=>x.classification);ch('c15','doughnut',k,[{data:k.map(x=>n[x]||0),backgroundColor:k.map(x=>CC[x]),borderWidth:0}]);
+ const av=(cl,f)=>{const a=FL.filter(x=>x.classification===cl&&x[f]!=null);return a.length?Math.round(a.reduce((s,x)=>s+x[f],0)/a.length):0};
+ ch('c16','bar',k,[['signature_score','Rule','#f97316'],['anomaly_score','Anomaly','#a78bfa'],['ml_score','ML','#38bdf8']].map(([f,l,c])=>ds(l,k.map(x=>av(x,f)),c)),{scales:{y:{max:100}}})}
+['fq','fCls'].forEach(i=>$('#'+i).oninput=drawFlows);
+/* ---------- RULES ---------- */
+async function rulesTab(){const [r,a]=await Promise.all([api('/rules'),api('/dashboard/alerts?'+M())]);const h=Object.fromEntries(a.rule_hits.map(x=>[x.k,x.c]));
+ if(!$('#rt').contains(document.activeElement))$('#rt').innerHTML=`<table><thead><tr><th>ID</th><th>Rule</th><th>Description</th><th>Severity</th><th>Thresholds</th><th>Hits</th><th>Enabled</th></tr></thead><tbody>${r.map(x=>`<tr><td>${x.rule_id}</td><td><b>${esc(x.name)}</b></td><td class="mut" style="white-space:normal;min-width:180px">${esc(x.description)}</td>
+ <td><select onchange="put('/rules/${x.rule_id}',{severity:this.value})">${SEV.map(s=>`<option ${s==x.severity?'selected':''}>${s}</option>`).join('')}</select></td>
+ <td>${Object.entries(x.threshold).map(([k,v])=>`<label class="mut">${k} <input type="number" step="any" min="0" value="${v}" onchange="put('/rules/${x.rule_id}',{threshold:{${k}:+this.value}}).then(j=>j.error&&alert(j.error))"></label>`).join('<br>')||'<span class="mut">approved-port list</span>'}</td>
+ <td>${h[x.rule_id]||0}</td><td><input type="checkbox" ${x.enabled?'checked':''} onchange="put('/rules/${x.rule_id}',{enabled:this.checked})"></td></tr>`).join('')}</tbody></table>`;
+ ch('c17','bar',r.map(x=>x.rule_id),[{data:r.map(x=>h[x.rule_id]||0),backgroundColor:PAL,label:'alerts'}])}
+/* ---------- MODEL ---------- */
+let MD=null,REP='';const MN={logistic_regression:'Logistic Regression',random_forest:'Random Forest',isolation_forest:'Isolation Forest'};
+async function modelTab(){if(!MD)MD=await api('/model');REP=await (await fetch('/api/report?'+M())).text();if($('#rep').textContent!==REP)$('#rep').textContent=REP;
+ if(!MD.models){$('#mt').innerHTML='<span class="mut">Run: python -m ml.train_model</span>';return}
+ const e=Object.entries(MD.models);$('#mi').textContent=MD.test_rows+' test flows';
+ $('#mt').innerHTML=`<table><thead><tr><th>Model</th><th>Acc</th><th>Prec</th><th>Rec</th><th>F1</th></tr></thead><tbody>${e.map(([k,v])=>`<tr><td>${MN[k]}</td><td>${v.accuracy}</td><td>${v.precision}</td><td>${v.recall}</td><td>${v.f1}</td></tr>`).join('')}</tbody></table>
+ <p class="mut">Features: ${MD.features.map(f=>`<span class="chip">${f}</span>`).join('')}</p><p class="mut" style="font-size:11px">Accuracy alone misleads on imbalanced data: watch recall (missed attacks) and precision (alert fatigue). Synthetic data makes these scores optimistic.</p>`;
+ ch('c18','bar',e.map(([k])=>MN[k]),['accuracy','precision','recall','f1'].map((m,i)=>ds(m,e.map(([,v])=>v[m]),PAL[i])),{scales:{y:{max:1}}});
+ $('#cm').innerHTML=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">${e.map(([k,v])=>`<div><b>${MN[k]}</b><div class="g2" style="text-align:center"><div style="background:#12392a"><small>True neg</small><b>${v.confusion[0][0]}</b></div><div style="background:#3a1d12"><small>False pos</small><b>${v.confusion[0][1]}</b></div><div style="background:#3a1d12"><small>False neg</small><b>${v.confusion[1][0]}</b></div><div style="background:#12392a"><small>True pos</small><b>${v.confusion[1][1]}</b></div></div></div>`).join('')}</div>`}
+function dl(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([REP],{type:'text/markdown'}));a.download='ids_report.md';a.click()}
+/* ---------- DRAWER ---------- */
+const bar=(l,v,c)=>`<small class="mut">${l}: ${v??'n/a'}</small><div class="sb"><i style="width:${v||0}%;background:${c}"></i></div>`;
+async function openA(id){const a=await api('/alerts/'+id),f=a.flow||{};$('#dr').classList.add('o');
+ $('#dr').innerHTML=`<div style="display:flex;justify-content:space-between"><h2 style="margin:0">${esc(a.alert_id)} ${sevB(a.severity)}</h2><button onclick="$('#dr').classList.remove('o')">✕</button></div>
+ <div class="mut">${esc(a.alert_type)} · rule ${esc(a.rule_id)} · ${esc(a.timestamp)} UTC</div>
+ <div class="g2"><div><small>Source</small>${esc(a.source_ip)}:${a.source_port}</div><div><small>Destination</small>${esc(a.destination_ip)}:${a.destination_port}</div><div><small>Protocol</small>${a.protocol}</div><div><small>Status</small>${a.status}</div>
+ <div><small>Packets / Bytes</small>${fmt(f.packet_count)} / ${fmt(f.byte_count)}</div><div><small>Duration</small>${f.duration}s</div><div><small>Connections / Failed</small>${f.connection_count} / ${f.failed_connection_count}</div><div><small>SYN / RST</small>${f.syn_count} / ${f.rst_count}</div></div>
+ ${bar('Signature score',f.signature_score,'#f97316')}${bar('Anomaly score',a.anomaly_score,'#a78bfa')}${bar('ML score',a.ml_score,'#38bdf8')}${bar('FINAL RISK',a.risk_score,COL[a.severity])}
+ <p><b>Reason:</b> ${esc(a.description)}<br><span class="mut">A rule match means "investigate", not "confirmed attack".</span></p>
+ <b>Recommended investigation steps</b><ul style="margin:4px 0;padding-left:18px">${a.recommended_steps.map(s=>`<li>${esc(s)}</li>`).join('')}</ul>
+ <div class="bar" style="margin:8px 0">${['INVESTIGATING','RESOLVED','FALSE_POSITIVE'].map(s=>`<button onclick="setS('${id}','${s}')">→ ${s}</button>`).join('')}</div>
+ <textarea id="nt" rows="3" style="width:100%" placeholder="Analyst note..."></textarea><button onclick="addN('${id}')">Add note</button>
+ <h4>Incident timeline</h4>${a.notes.map(n=>`<div class="inc"><span>${esc(n.note)}</span><span class="mut">${esc(n.created_at.slice(11))}</span></div>`).join('')||'<span class="mut">No activity yet</span>'}`}
+async function setS(id,s){await put('/alerts/'+id+'/status',{status:s,note:$('#nt').value.trim()});openA(id);load()}
+async function addN(id){const n=$('#nt').value.trim();if(!n)return;await api('/alerts/'+id+'/notes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({note:n})});openA(id)}
+/* ---------- TABS ---------- */
+const LOAD={overview,alerts:alertsTab,incidents:incTab,flows:flowsTab,rules:rulesTab,model:modelTab};let tab='overview';
+async function load(){try{await LOAD[tab]();$('#lv').textContent='LIVE · '+new Date().toLocaleTimeString([], {hour12:false})}catch(e){$('#lv').textContent='connection error'}}
+function show(t){if(!LOAD[t])t='overview';tab=t;location.hash=t;document.querySelectorAll('.tab').forEach(e=>e.classList.toggle('on',e.id==='t-'+t));document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));load()}
+document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>show(b.dataset.t));
+['#fRange','#fSev','#fProto','#fType','#fStat'].forEach(s=>$(s).onchange=load);
+let paused=false;$('#pause').onclick=e=>{paused=!paused;e.target.textContent=paused?'▶ Resume':'⏸ Pause';$('#lv').style.opacity=paused?.4:1};
+show(location.hash.slice(1)||'overview');setInterval(()=>{if(!paused&&!$('#dr.o')&&document.activeElement.tagName!=='INPUT')load()},3000);
+</script></body></html>
